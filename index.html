@@ -809,7 +809,12 @@ async function loadDriverMain(driverId){
   $("driverGreeting").textContent = T("hello") + ", " + currentDriver.name + "!";
   $("driverMashina").textContent = T("car") + ": " + (currentDriver.mashina || "—");
 
-  await loadRoutesIntoSelect();
+  try{
+    await loadRoutesIntoSelect();
+  }catch(e){
+    console.error("Йўналишларни юклашда хато:", e);
+    // Йўналишлар юкланмаса ҳам, қолган экран (сафар бошлаш/якунлаш) ишлашда давом этсин
+  }
   await loadOrCreateTodayWorkday();
 
   if(currentWorkday.closed){
