@@ -326,19 +326,24 @@ tr{transition:background .12s var(--ease)}
       <div class="muted" data-i18n="distanceSoFar">Ҳозирча босиб ўтилди</div>
       <div class="n" id="liveDistance">0.0 км</div>
     </div>
+    <div class="notice" style="margin-top:12px;font-size:var(--fs-sm)" id="tripWarning">
+      <b data-i18n="keepOpenTitle">⚠️ Иловани ёпманг</b><br>
+      <span data-i18n="keepOpenText">Йўл ва масофа ёзилиши учун шу экран очиқ турсин. Бошқа иловага ўтсангиз ёки телефонни қулфласангиз — ёзув тўхтайди.</span>
+      <div style="margin-top:6px" id="wakeLockStatus"></div>
+    </div>
     <button class="big primary" onclick="showFinishTripForm()">✅ <span data-i18n="arrived">Етиб келдим</span></button>
   </div>
 
   <div id="finishTripForm" class="card hidden">
     <h3 data-i18n="finishTrip">Сафарни якунлаш</h3>
     <label data-i18n="income">Тушум (сўм)</label>
-    <input type="number" id="ft_tushum" min="0">
+    <input type="number" id="ft_tushum" min="0" max="500000000" step="1000" inputmode="numeric">
     <label data-i18n="fuelExpense">Ёқилғи харажати (сўм)</label>
-    <input type="number" id="ft_yoqilgi" min="0" value="0">
+    <input type="number" id="ft_yoqilgi" min="0" max="500000000" step="1000" inputmode="numeric" value="0">
     <label data-i18n="otherExpense">Бошқа харажат (сўм)</label>
-    <input type="number" id="ft_boshqa" min="0" value="0">
+    <input type="number" id="ft_boshqa" min="0" max="500000000" step="1000" inputmode="numeric" value="0">
     <label data-i18n="ownSalary">Ўзига иш ҳақи (сўм)</label>
-    <input type="number" id="ft_ishhaqi" min="0" value="0">
+    <input type="number" id="ft_ishhaqi" min="0" max="500000000" step="1000" inputmode="numeric" value="0">
     <button class="big green" onclick="finishTrip()" data-i18n="finishAndSend">Якунлаш ва юбориш</button>
   </div>
 
@@ -399,6 +404,7 @@ tr{transition:background .12s var(--ease)}
     <button data-tab="trips" onclick="switchBossTab('trips')" data-i18n="tabTrips">Сафарлар</button>
     <button data-tab="days" onclick="switchBossTab('days')" data-i18n="tabDays">Кунлар</button>
     <button data-tab="map" onclick="switchBossTab('map')" data-i18n="tabMap">Харита</button>
+    <button data-tab="analysis" onclick="switchBossTab('analysis')" data-i18n="tabAnalysis">Таҳлил</button>
     <button data-tab="reports" onclick="switchBossTab('reports')" data-i18n="tabReports">Ҳисобот</button>
     <button data-tab="routes" onclick="switchBossTab('routes')" data-i18n="tabRoutes">Йўналишлар</button>
     <button data-tab="drivers" onclick="switchBossTab('drivers')" data-i18n="tabDrivers">Шофёрлар</button>
@@ -473,6 +479,52 @@ tr{transition:background .12s var(--ease)}
         <span style="color:#1a8f5c">●</span> <span data-i18n="trackStart">бошланиш</span> ·
         <span style="color:#12294f">●</span> <span data-i18n="trackEnd">тугаш</span>
       </div>
+    </div>
+  </div>
+
+  <div id="bossTab-analysis" class="hidden">
+    <div class="card">
+      <h3>📊 <span data-i18n="efficiencyTitle">Мошиналар самарадорлиги</span></h3>
+      <p class="muted" style="margin-top:-6px" data-i18n="efficiencyDesc">
+        Қайси мошина кўп юриб, кам топширяпти — шуни аниқлайди. Асосий кўрсаткич: 1 км га кассага тушган сумма.
+      </p>
+      <div class="grid2">
+        <div><label data-i18n="fromDate">Бошланиш санаси</label><input type="date" id="anFrom"></div>
+        <div><label data-i18n="toDate">Тугаш санаси</label><input type="date" id="anTo"></div>
+      </div>
+      <button class="primary" style="margin-top:14px" onclick="runAnalysis()" data-i18n="analyze">Таҳлил қилиш</button>
+    </div>
+
+    <div class="card hidden" id="anSummaryCard">
+      <h3 data-i18n="fleetAverage">Парк бўйича ўртача</h3>
+      <div class="grid3">
+        <div class="stat"><div class="muted" data-i18n="totalDistance">Жами масофа</div><div class="n" id="anTotalKm" style="font-size:var(--fs-lg)">—</div></div>
+        <div class="stat"><div class="muted" data-i18n="avgCashPerKm">1 км га кассага</div><div class="n" id="anAvgCash" style="font-size:var(--fs-lg)">—</div></div>
+        <div class="stat"><div class="muted" data-i18n="avgFuelPer100">100 км ёқилғи</div><div class="n" id="anAvgFuel" style="font-size:var(--fs-lg)">—</div></div>
+      </div>
+    </div>
+
+    <div class="card hidden" id="anWarnCard" style="border-left:4px solid var(--red)">
+      <h3>⚠️ <span data-i18n="attentionNeeded">Эътибор талаб қилади</span></h3>
+      <div id="anWarnings"></div>
+    </div>
+
+    <div class="card hidden" id="anTableCard" style="overflow:auto">
+      <h3 data-i18n="byVehicle">Мошиналар кесимида</h3>
+      <table><thead><tr>
+        <th data-i18n="vehicle">Мошина</th>
+        <th data-i18n="driver">Шофёр</th>
+        <th class="num" data-i18n="trips">Рейслар</th>
+        <th class="num" data-i18n="distance">Масофа</th>
+        <th class="num" data-i18n="income">Тушум</th>
+        <th class="num" data-i18n="toCash">Кассага</th>
+        <th class="num" data-i18n="cashPerKm">1 км га</th>
+        <th class="num" data-i18n="fuelPer100">100 км ёқилғи</th>
+        <th data-i18n="rating">Баҳо</th>
+      </tr></thead><tbody id="anTableBody"></tbody></table>
+      <p class="muted" style="margin-top:10px;font-size:var(--fs-xs)" data-i18n="ratingNote">
+        Баҳо — «1 км га кассага» кўрсаткичи парк ўртачасига нисбатан ҳисобланади.
+      </p>
     </div>
   </div>
 
@@ -944,7 +996,24 @@ const translations = {
   trackStart:{uz:"бошланиш",ru:"начало"},
   trackEnd:{uz:"тугаш",ru:"конец"},
   distance:{uz:"Масофа",ru:"Расстояние"},
+  tabAnalysis:{uz:"Таҳлил",ru:"Анализ"},
+  efficiencyTitle:{uz:"Мошиналар самарадорлиги",ru:"Эффективность автомобилей"},
+  efficiencyDesc:{uz:"Қайси мошина кўп юриб, кам топширяпти — шуни аниқлайди. Асосий кўрсаткич: 1 км га кассага тушган сумма.",ru:"Определяет, какая машина много ездит, но мало сдаёт. Ключевой показатель: сумма в кассу на 1 км."},
+  analyze:{uz:"Таҳлил қилиш",ru:"Анализировать"},
+  fleetAverage:{uz:"Парк бўйича ўртача",ru:"В среднем по парку"},
+  totalDistance:{uz:"Жами масофа",ru:"Общий пробег"},
+  avgCashPerKm:{uz:"1 км га кассага",ru:"В кассу за 1 км"},
+  avgFuelPer100:{uz:"100 км ёқилғи",ru:"Топливо на 100 км"},
+  attentionNeeded:{uz:"Эътибор талаб қилади",ru:"Требует внимания"},
+  byVehicle:{uz:"Мошиналар кесимида",ru:"В разрезе автомобилей"},
+  toCash:{uz:"Кассага",ru:"В кассу"},
+  cashPerKm:{uz:"1 км га",ru:"За 1 км"},
+  fuelPer100:{uz:"100 км ёқилғи",ru:"Топливо/100км"},
+  rating:{uz:"Баҳо",ru:"Оценка"},
+  ratingNote:{uz:"Баҳо — «1 км га кассага» кўрсаткичи парк ўртачасига нисбатан ҳисобланади.",ru:"Оценка рассчитывается по показателю «в кассу за 1 км» относительно среднего по парку."},
   distanceSoFar:{uz:"Ҳозирча босиб ўтилди",ru:"Пройдено на данный момент"},
+  keepOpenTitle:{uz:"⚠️ Иловани ёпманг",ru:"⚠️ Не закрывайте приложение"},
+  keepOpenText:{uz:"Йўл ва масофа ёзилиши учун шу экран очиқ турсин. Бошқа иловага ўтсангиз ёки телефонни қулфласангиз — ёзув тўхтайди.",ru:"Чтобы путь и расстояние записывались, этот экран должен быть открыт. Если перейти в другое приложение или заблокировать телефон — запись остановится."},
   forceFinish:{uz:"Мажбуран якунлаш",ru:"Принудительно завершить"},
   vehicle:{uz:"Мошина",ru:"Автомобиль"},
   allVehicles:{uz:"Барча мошиналар",ru:"Все автомобили"},
@@ -1085,6 +1154,8 @@ function chooseRole(role){
 function logout(){
   sessionStorage.removeItem("ap_role");
   sessionStorage.removeItem("ap_driverId");
+  localStorage.removeItem("ap_role");
+  localStorage.removeItem("ap_driverId");
   if(liveUnsub) liveUnsub();
   if(typeof stopLiveLocationWatch === "function") stopLiveLocationWatch();
   if(typeof stopWarmUpGps === "function") stopWarmUpGps();
@@ -1101,8 +1172,8 @@ function boot(){
   }, 10000);
   ensureBossSettings().then(()=>{
     clearTimeout(timeoutId);
-    const role = sessionStorage.getItem("ap_role");
-    const driverId = sessionStorage.getItem("ap_driverId");
+    const role = sessionStorage.getItem("ap_role") || localStorage.getItem("ap_role");
+    const driverId = localStorage.getItem("ap_driverId") || sessionStorage.getItem("ap_driverId");
     hideAllViews();
     if(role === "boss"){
       $("bossMain").classList.remove("hidden");
@@ -1162,16 +1233,45 @@ async function openDriverLogin(){
 async function driverLogin(){
   const id = $("driverSelect").value;
   const pin = $("driverPin").value;
-  if(!id) return;
-  const doc = await db.collection("drivers").doc(id).get();
-  if(!doc.exists){ $("driverLoginErr").textContent = "Хатолик юз берди."; return; }
-  const d = doc.data();
-  if(simpleHash(pin) !== d.pinHash){
-    $("driverLoginErr").textContent = "PIN нотўғри.";
+  if(!id){
+    $("driverLoginErr").textContent = currentLang==="ru" ? "Выберите своё имя." : "Исмингизни танланг.";
     return;
   }
-  sessionStorage.setItem("ap_role","driver");
-  sessionStorage.setItem("ap_driverId", id);
+  if(!pin){
+    $("driverLoginErr").textContent = currentLang==="ru" ? "Введите PIN." : "PIN киритинг.";
+    return;
+  }
+  const btn = event && event.target ? event.target.closest("button") : null;
+  if(btn) btn.disabled = true;
+  let doc;
+  try{
+    $("driverLoginErr").textContent = currentLang==="ru" ? "Проверка..." : "Текширилмоқда...";
+    doc = await db.collection("drivers").doc(id).get();
+  }catch(e){
+    $("driverLoginErr").textContent = explainError(e);
+    if(btn) btn.disabled = false;
+    return;
+  }
+  if(btn) btn.disabled = false;
+  if(!doc.exists){
+    $("driverLoginErr").textContent = currentLang==="ru"
+      ? "Водитель не найден. Обратитесь к руководителю." : "Шофёр топилмади. Боссга мурожаат қилинг.";
+    return;
+  }
+  const d = doc.data();
+  if(d.active === false){
+    $("driverLoginErr").textContent = currentLang==="ru"
+      ? "Ваш доступ приостановлен. Обратитесь к руководителю." : "Кириш ҳуқуқингиз тўхтатилган. Боссга мурожаат қилинг.";
+    return;
+  }
+  if(simpleHash(pin) !== d.pinHash){
+    $("driverLoginErr").textContent = currentLang==="ru" ? "Неверный PIN." : "PIN нотўғри.";
+    return;
+  }
+  $("driverLoginErr").textContent = "";
+  // Шофёр ҳар сафар PIN киритмасин — сессия сақланади (localStorage)
+  localStorage.setItem("ap_role","driver");
+  localStorage.setItem("ap_driverId", id);
   hideAllViews();
   $("driverMain").classList.remove("hidden");
   $("logoutBtn").classList.remove("hidden");
@@ -1421,22 +1521,33 @@ function distanceMeters(a, b){
 let liveWatchId = null;
 let lastLiveSent = 0;          // сўнгги "жонли жойлашув" юборилган вақт
 let lastTrackPoint = null;     // йўл изига сўнгги қўшилган нуқта
+let lastDistPoint = null;      // масофа ҳисоби учун сўнгги нуқта
+let trackPointCount = 0;       // шу сафарда сақланган нуқталар сони
 let trackBuffer = [];          // ҳали юборилмаган нуқталар
 let tripDistanceM = 0;         // жорий сафар масофаси (метр)
 let trackHadPoints = false;    // сафар давомида биронта нуқта ёзилдими
+let gpsLostWarned = false;     // GPS йўқолгани ҳақида огоҳлантирилдими
 let trackFlushTimer = null;
 
-const MIN_MOVE_M   = 25;       // 25 метрдан кам силжиш — ёзилмайди (машина турибди)
+// Йўл изи учун ҳар 500 метрда битта нуқта — харита масштабида йўл аниқ кўринади,
+// лекин булутдаги жой 20 баробар кам эгалланади.
+const MIN_MOVE_M   = 500;      // йўл изи учун нуқта оралиғи (харита учун етарли аниқлик)
+const MIN_DIST_M   = 20;       // масофа ҳисоби учун — аниқроқ (нуқта сақланмайди)
+const MAX_POINTS   = 3000;     // хавфсизлик чегараси: бир сафарда максимум нуқта
 const LIVE_EVERY_MS = 45000;   // жонли жойлашув: ҳар 45 сонияда
 const FLUSH_EVERY_MS = 180000; // йўл изини базага юбориш: ҳар 3 дақиқада
 const MAX_ACCURACY_M = 100;    // GPS аниқлиги 100 м дан ёмон бўлса — ишонмаймиз
 
 function resetTrack(){
   lastTrackPoint = null;
+  lastDistPoint = null;
+  trackPointCount = 0;
   trackBuffer = [];
   tripDistanceM = 0;
   trackHadPoints = false;
+  gpsLostWarned = false;
   if(trackFlushTimer){ clearInterval(trackFlushTimer); trackFlushTimer = null; }
+  releaseWakeLock();
 }
 
 async function flushTrack(){
@@ -1455,9 +1566,61 @@ async function flushTrack(){
   }
 }
 
+/* ============================================================
+   ЭКРАННИ ЁҚИҚ УШЛАБ ТУРИШ (Wake Lock)
+   Сафар давомида экран ўз-ўзидан ўчмайди — GPS ёзувда давом этади.
+   Эслатма: шофёр HOME тугмасини боссa ёки бошқа иловага ўтса,
+   бу ҳам ёрдам бермайди — браузер барибир тўхтатилади.
+   ============================================================ */
+let wakeLock = null;
+
+async function acquireWakeLock(){
+  try{
+    if(!("wakeLock" in navigator)) return false;   // эски браузер — қўллаб-қувватламайди
+    if(wakeLock) return true;
+    wakeLock = await navigator.wakeLock.request("screen");
+    wakeLock.addEventListener("release", ()=>{ wakeLock = null; updateWakeStatus(); });
+    updateWakeStatus();
+    return true;
+  }catch(e){
+    console.warn("Wake Lock олинмади:", e && e.message);
+    wakeLock = null;
+    return false;
+  }
+}
+
+function updateWakeStatus(){
+  const el = document.getElementById("wakeLockStatus");
+  if(!el) return;
+  if(wakeLock){
+    el.innerHTML = `<span style="color:var(--green);font-weight:700">✓ ${
+      currentLang==="ru" ? "Экран не погаснет" : "Экран ўчмайди"}</span>`;
+  }else if(!("wakeLock" in navigator)){
+    el.innerHTML = `<span style="color:var(--muted)">${
+      currentLang==="ru" ? "Отключите автоблокировку экрана вручную" : "Экран қулфланишини қўлда ўчиринг"}</span>`;
+  }else{
+    el.innerHTML = "";
+  }
+}
+
+async function releaseWakeLock(){
+  try{
+    if(wakeLock){ await wakeLock.release(); wakeLock = null; }
+  }catch(e){ wakeLock = null; }
+  updateWakeStatus();
+}
+
+// Фойдаланувчи бошқа табга ўтиб қайтса, Wake Lock йўқолади — қайта оламиз
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState === "visible" && currentTripId && !wakeLock){
+    acquireWakeLock();
+  }
+});
+
 function startLiveLocationWatch(){
   if(liveWatchId !== null || !navigator.geolocation) return;
   resetTrack();
+  acquireWakeLock();
   const ld = $("liveDistance");
   if(ld) ld.textContent = "0.0 км";
   trackFlushTimer = setInterval(flushTrack, FLUSH_EVERY_MS);
@@ -1469,19 +1632,27 @@ function startLiveLocationWatch(){
     const now = Date.now();
 
     // --- Йўл изи: фақат ҳақиқий силжиш бўлганда нуқта қўшамиз ---
-    if(!lastTrackPoint){
+    if(!lastDistPoint){
+      lastDistPoint = p;
       lastTrackPoint = p;
       trackBuffer.push({ lat:+p.lat.toFixed(5), lng:+p.lng.toFixed(5), t: now });
       trackHadPoints = true;
     }else{
-      const d = distanceMeters(lastTrackPoint, p);
-      if(d >= MIN_MOVE_M){
-        tripDistanceM += d;
-        lastTrackPoint = p;
-        trackBuffer.push({ lat:+p.lat.toFixed(5), lng:+p.lng.toFixed(5), t: now });
-        trackHadPoints = true;
+      // 1) Масофа — ҳар 20 метрда ҳисобланади (аниқроқ бўлиши учун)
+      const dd = distanceMeters(lastDistPoint, p);
+      if(dd >= MIN_DIST_M){
+        tripDistanceM += dd;
+        lastDistPoint = p;
         const el = $("liveDistance");
         if(el) el.textContent = (tripDistanceM/1000).toFixed(1) + " км";
+      }
+      // 2) Йўл изи нуқтаси — фақат ҳар 200 метрда (булутда жой тежаш)
+      const dt = distanceMeters(lastTrackPoint, p);
+      if(dt >= MIN_MOVE_M && trackPointCount < MAX_POINTS){
+        lastTrackPoint = p;
+        trackBuffer.push({ lat:+p.lat.toFixed(5), lng:+p.lng.toFixed(5), t: now });
+        trackPointCount++;
+        trackHadPoints = true;
       }
     }
 
@@ -1492,7 +1663,16 @@ function startLiveLocationWatch(){
       liveLocation: { lat: p.lat, lng: p.lng, accuracy: acc },
       liveLocationAt: firebase.firestore.FieldValue.serverTimestamp()
     }).catch(()=>{});
-  }, (err)=>{ console.warn("Геолокация хатоси:", err && err.message); },
+  }, (err)=>{
+    console.warn("Геолокация хатоси:", err && err.message);
+    // Сафар давомида GPS ўчирилса — шофёрни огоҳлантирамиз (бир марта)
+    if(err && err.code === 1 && !gpsLostWarned){
+      gpsLostWarned = true;
+      toast(currentLang==="ru"
+        ? "Местоположение отключено — путь не записывается!"
+        : "Жойлашув ўчирилди — йўл ёзилмаяпти!", "err");
+    }
+  },
   { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
 }
 function stopLiveLocationWatch(){
@@ -1532,6 +1712,17 @@ async function startTrip(){
         : "Жойлашувни аниқлаб бўлмади. Босс сизни харитада кўра олмайди.\n\nБарибир давом этасизми?",
         {icon:"📍", okLabel: currentLang==="ru"?"Продолжить":"Давом этиш"});
       if(!goOn){ return; }
+    }
+    // Бошқа қурилмада очиқ сафар қолмаганини текширамиз (иккита сафар очилиб кетмасин)
+    const dup = await db.collection("trips")
+      .where("driverId","==",currentDriver.id).where("status","==","yolda").limit(1).get();
+    if(!dup.empty){
+      const t = dup.docs[0];
+      currentTripId = t.id;
+      showActiveTrip(t.data());
+      toast(currentLang==="ru"
+        ? "У вас уже есть незавершённый рейс" : "Сизда якунланмаган сафар бор", "err");
+      return;
     }
     const docRef = await db.collection("trips").add({
       driverId: currentDriver.id,
@@ -1575,7 +1766,30 @@ async function finishTrip(){
   const yoqilgi = Number($("ft_yoqilgi").value || 0);
   const boshqa = Number($("ft_boshqa").value || 0);
   const ishHaqi = Number($("ft_ishhaqi").value || 0);
+
+  // --- Киритилган рақамларни текшириш (адашиб нол қўшиб юбормаслик учун) ---
+  const MAX_SUM = 500000000;   // 500 млн сўм — бир рейс учун реал юқори чегара
+  const vals = { tushum, yoqilgi, boshqa, ishHaqi };
+  for(const k in vals){
+    const v = vals[k];
+    if(!isFinite(v) || v < 0){
+      toast(currentLang==="ru" ? "Сумма не может быть отрицательной" : "Сумма манфий бўлиши мумкин эмас", "err");
+      return;
+    }
+    if(v > MAX_SUM){
+      toast(currentLang==="ru" ? "Слишком большая сумма — проверьте ввод" : "Сумма жуда катта — киритишни текширинг", "err");
+      return;
+    }
+  }
   if(tushum <= 0){ toast(currentLang==="ru"?"Введите доход":"Тушумни киритинг","err"); return; }
+
+  // Харажатлар тушумдан ошиб кетса — шофёрдан тасдиқ сўраймиз (одатда хато киритиш)
+  if(yoqilgi + boshqa + ishHaqi > tushum){
+    const ok = await uiConfirm(currentLang==="ru"
+      ? "Расходы больше дохода. Это верно?"
+      : "Харажатлар тушумдан кўп чиқди. Тўғрими?", {icon:"⚠️"});
+    if(!ok) return;
+  }
   const btn = event.target.closest("button");
   const btnHtml = btn.innerHTML;
   btn.disabled = true;
@@ -1669,7 +1883,7 @@ async function bossLogin(){
     $("bossLoginErr").textContent = currentLang==="ru" ? "Неверный пароль." : "Парол нотўғри.";
     return;
   }
-  sessionStorage.setItem("ap_role","boss");
+  sessionStorage.setItem("ap_role","boss");   // босс сессияси — фақат шу сеансда (хавфсизроқ)
   hideAllViews();
   $("bossMain").classList.remove("hidden");
   $("logoutBtn").classList.remove("hidden");
@@ -1766,12 +1980,19 @@ function toggleVisibility(inputId, btn){
 
 function switchBossTab(tab){
   document.querySelectorAll(".tabs button").forEach(b=> b.classList.toggle("active", b.dataset.tab===tab));
-  ["live","trips","days","map","reports","routes","drivers","settings"].forEach(t=>{
+  ["live","trips","days","map","analysis","reports","routes","drivers","settings"].forEach(t=>{
     $("bossTab-"+t).classList.toggle("hidden", t!==tab);
   });
   if(tab==="trips") renderTripsTable();
   if(tab==="days") renderDaysTable();
   if(tab==="map"){ if(!$("mapTrackDate").value) $("mapTrackDate").value = todayStr(); setTimeout(renderMapTab, 50); }
+  if(tab==="analysis"){
+    if(!$("anFrom").value){
+      const d = new Date(); d.setDate(d.getDate()-30);
+      $("anFrom").value = localDateStr(d);
+      $("anTo").value = todayStr();
+    }
+  }
   if(tab==="reports"){
     $("repFrom").value = todayStr(); $("repTo").value = todayStr();
     const cars = [...new Set(allDriversCache.map(d=> d.mashina).filter(Boolean))];
@@ -1798,6 +2019,42 @@ function startClock(){
   clockTimer = setInterval(updateClock, 1000);
 }
 
+/* ============================================================
+   ЭСКИ ЙЎЛ ИЗЛАРИНИ ТОЗАЛАШ
+   Йўл изи (харитадаги чизиқ) — оператив маълумот, 3 кундан кейин керак эмас.
+   МАСОФА РАҚАМИ сафар ҳужжатида ДОИМ сақланиб қолади — фақат чизиқ ўчирилади.
+   Бу булутдаги жой чексиз ўсиб кетишининг олдини олади.
+   ============================================================ */
+const TRACK_KEEP_DAYS = 3;    // йўл излари неча кун сақлансин (масофа рақами доим қолади)
+
+async function cleanupOldTracks(){
+  try{
+    const lastRun = localStorage.getItem("ap_track_cleanup");
+    const today = todayStr();
+    if(lastRun === today) return;              // кунига бир марта етарли
+    localStorage.setItem("ap_track_cleanup", today);
+
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - TRACK_KEEP_DAYS);
+    const old = await db.collection("trips")
+      .where("startTime", "<", cutoff)
+      .where("hasTrack", "==", true)
+      .limit(200)
+      .get();
+    if(old.empty) return;
+
+    const batch = db.batch();
+    old.forEach(d=>{
+      batch.delete(db.collection("tracks").doc(d.id));
+      batch.update(d.ref, { hasTrack: false });
+    });
+    await batch.commit();
+    console.log("Эски йўл излари тозаланди:", old.size);
+  }catch(e){
+    console.warn("Йўл изларини тозалашда хато:", e && e.message);
+  }
+}
+
 async function initBossDashboard(){
   startClock();
   showTableLoading("tripsTableBody", 9);
@@ -1817,6 +2074,7 @@ async function initBossDashboard(){
   subscribeWorkdays();
   switchBossTab("live");
   checkAutoDailySummary().catch(e=> console.error("Auto summary xatosi:", e));
+  cleanupOldTracks();
 }
 
 async function refreshDriversCache(){
@@ -2422,6 +2680,145 @@ async function fetchTripsInRange(fromStr, toStr){
   const trips = [];
   snap.forEach(d=> trips.push({id:d.id, ...d.data()}));
   return trips;
+}
+
+/* ============================================================
+   МОШИНАЛАР САМАРАДОРЛИГИ ТАҲЛИЛИ
+   Асосий мантиқ: мошина кўп юриб, кассага кам топширса — муаммо.
+   Ўлчов: 1 км масофага кассага тушган сумма (сўм/км).
+   Ҳар бир мошина парк ўртачаси билан солиштирилади.
+   ============================================================ */
+async function runAnalysis(){
+  const from = $("anFrom").value, to = $("anTo").value;
+  if(!from || !to){ toast(currentLang==="ru"?"Выберите даты":"Санани танланг","err"); return; }
+  const btn = event.target.closest("button");
+  btn.disabled = true;
+  try{
+    const trips = (await fetchTripsInRange(from, to)).filter(t=> t.status === "tugadi");
+    if(!trips.length){
+      $("anSummaryCard").classList.add("hidden");
+      $("anWarnCard").classList.add("hidden");
+      $("anTableCard").classList.add("hidden");
+      toast(currentLang==="ru"?"За этот период рейсов нет":"Бу даврда сафар йўқ","err");
+      return;
+    }
+
+    // --- Мошиналар кесимида йиғамиз ---
+    const byCar = {};
+    trips.forEach(t=>{
+      const key = t.mashina || (currentLang==="ru" ? "(без номера)" : "(рақамсиз)");
+      if(!byCar[key]) byCar[key] = {
+        car:key, drivers:new Set(), trips:0, km:0,
+        tushum:0, yoqilgi:0, boshqa:0, ishHaqi:0
+      };
+      const c = byCar[key];
+      c.trips++;
+      c.km      += Number(t.distanceKm||0);
+      c.tushum  += Number(t.tushum||0);
+      c.yoqilgi += Number(t.yoqilgi||0);
+      c.boshqa  += Number(t.boshqa||0);
+      c.ishHaqi += Number(t.ishHaqi||0);
+      if(t.driverName) c.drivers.add(t.driverName);
+    });
+
+    const rows = Object.values(byCar).map(c=>{
+      c.kassaga = c.tushum - c.yoqilgi - c.boshqa - c.ishHaqi;   // кассага топшириладиган
+      c.cashPerKm = c.km > 0 ? c.kassaga / c.km : null;
+      c.fuelPer100 = c.km > 0 ? (c.yoqilgi / c.km) * 100 : null;
+      return c;
+    });
+
+    // --- Парк ўртачаси (масофаси бор мошиналар бўйича) ---
+    const withKm = rows.filter(r=> r.km > 0);
+    const totalKm    = rows.reduce((a,r)=> a + r.km, 0);
+    const totalKassa = rows.reduce((a,r)=> a + r.kassaga, 0);
+    const totalFuel  = rows.reduce((a,r)=> a + r.yoqilgi, 0);
+    const avgCashPerKm  = totalKm > 0 ? totalKassa / totalKm : 0;
+    const avgFuelPer100 = totalKm > 0 ? (totalFuel / totalKm) * 100 : 0;
+
+    $("anTotalKm").textContent  = totalKm.toFixed(1) + " км";
+    $("anAvgCash").textContent  = avgCashPerKm > 0 ? money(Math.round(avgCashPerKm)) : "—";
+    $("anAvgFuel").textContent  = avgFuelPer100 > 0 ? money(Math.round(avgFuelPer100)) : "—";
+    $("anSummaryCard").classList.remove("hidden");
+
+    // --- Баҳо: парк ўртачасига нисбатан ---
+    rows.forEach(r=>{
+      if(r.cashPerKm === null || avgCashPerKm <= 0){ r.score = null; return; }
+      r.score = r.cashPerKm / avgCashPerKm;      // 1.0 = ўртача
+    });
+
+    // Энг ёмонлари юқорида
+    rows.sort((a,b)=>{
+      if(a.score === null) return 1;
+      if(b.score === null) return -1;
+      return a.score - b.score;
+    });
+
+    function badge(r){
+      if(r.score === null)
+        return `<span class="badge">${currentLang==="ru"?"нет данных":"маълумот йўқ"}</span>`;
+      if(r.score < 0.5)
+        return `<span class="badge" style="background:var(--red-soft);color:var(--red)">${currentLang==="ru"?"Очень низкая":"Жуда паст"}</span>`;
+      if(r.score < 0.75)
+        return `<span class="badge yolda">${currentLang==="ru"?"Ниже нормы":"Нормадан паст"}</span>`;
+      if(r.score > 1.25)
+        return `<span class="badge bosh">${currentLang==="ru"?"Отлично":"Аъло"}</span>`;
+      return `<span class="badge">${currentLang==="ru"?"Норма":"Нормал"}</span>`;
+    }
+
+    $("anTableBody").innerHTML = rows.map(r=>`<tr>
+      <td><b>${esc(r.car)}</b></td>
+      <td>${esc([...r.drivers].join(", "))}</td>
+      <td class="num">${r.trips}</td>
+      <td class="num">${r.km.toFixed(1)} км</td>
+      <td class="num">${money(r.tushum)}</td>
+      <td class="num">${money(r.kassaga)}</td>
+      <td class="num">${r.cashPerKm !== null ? money(Math.round(r.cashPerKm)) : "—"}</td>
+      <td class="num">${r.fuelPer100 !== null ? money(Math.round(r.fuelPer100)) : "—"}</td>
+      <td>${badge(r)}</td>
+    </tr>`).join("");
+    $("anTableCard").classList.remove("hidden");
+
+    // --- Огоҳлантиришлар: аниқ, тушунарли жумлалар билан ---
+    const warns = [];
+    rows.forEach(r=>{
+      if(r.score !== null && r.score < 0.75 && r.km > 50){
+        const pct = Math.round((1 - r.score) * 100);
+        warns.push(currentLang==="ru"
+          ? `<b>${esc(r.car)}</b> — проехал ${r.km.toFixed(0)} км, но сдал в кассу на <b>${pct}% меньше</b> среднего по парку (${money(Math.round(r.cashPerKm))} вместо ${money(Math.round(avgCashPerKm))} за км). Водитель: ${esc([...r.drivers].join(", "))}`
+          : `<b>${esc(r.car)}</b> — ${r.km.toFixed(0)} км юрган, лекин кассага парк ўртачасидан <b>${pct}% кам</b> топширган (1 км га ${money(Math.round(r.cashPerKm))}, ўртача ${money(Math.round(avgCashPerKm))}). Шофёр: ${esc([...r.drivers].join(", "))}`);
+      }
+      if(r.fuelPer100 !== null && avgFuelPer100 > 0 && r.fuelPer100 > avgFuelPer100 * 1.35 && r.km > 50){
+        const pct = Math.round((r.fuelPer100 / avgFuelPer100 - 1) * 100);
+        warns.push(currentLang==="ru"
+          ? `<b>${esc(r.car)}</b> — расход топлива на <b>${pct}% выше</b> среднего (${money(Math.round(r.fuelPer100))} на 100 км).`
+          : `<b>${esc(r.car)}</b> — ёқилғи сарфи ўртачадан <b>${pct}% юқори</b> (100 км га ${money(Math.round(r.fuelPer100))}).`);
+      }
+      if(r.km === 0 && r.trips > 0){
+        warns.push(currentLang==="ru"
+          ? `<b>${esc(r.car)}</b> — ${r.trips} рейс(ов) без записи маршрута (приложение было закрыто).`
+          : `<b>${esc(r.car)}</b> — ${r.trips} та рейс масофасиз (илова ёпиқ бўлган).`);
+      }
+    });
+
+    if(warns.length){
+      $("anWarnings").innerHTML = warns.map(w=>
+        `<div class="notice" style="margin-bottom:8px">${w}</div>`).join("");
+      $("anWarnCard").classList.remove("hidden");
+    }else{
+      $("anWarnings").innerHTML = `<div class="empty-state">
+        <span class="ic">✅</span>
+        <div class="title">${currentLang==="ru"?"Отклонений не найдено":"Четланиш топилмади"}</div>
+        <div class="hint">${currentLang==="ru"?"Все машины работают в пределах нормы.":"Барча мошиналар норма доирасида ишлаяпти."}</div>
+      </div>`;
+      $("anWarnCard").classList.remove("hidden");
+    }
+  }catch(e){
+    console.error("Таҳлил хатоси:", e);
+    uiError(explainError(e));
+  }finally{
+    btn.disabled = false;
+  }
 }
 
 async function exportExcel(){
